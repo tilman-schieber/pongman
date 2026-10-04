@@ -1,5 +1,5 @@
 import { Game, MENU, MUSIC_NAMES, NAME_LEN } from './game';
-import { World, Ghost, Ball, Side, DX, DY, SIDE_COLORS, COLS, ROWS, TILE, FIELD_C0, FIELD_C1, FACE_X, PADDLE_W, PADDLE_H, BALL_R, HOLD_FRAMES, DEATH_FRAMES, GRID_H, PELLET, cellAt, cx, cy, colX, rowY } from './world';
+import { World, Ghost, Ball, Side, DX, DY, SIDE_COLORS, COLS, ROWS, TILE, FIELD_C0, FIELD_C1, FACE_X, PADDLE_W, PADDLE_H, BALL_R, HOLD_FRAMES, DEATH_FRAMES, GRID_H, KONG_UP, PELLET, cellAt, cx, cy, colX, rowY } from './world';
 import { WALL, DOOR, HOUSE } from './maze';
 import { CPUS, PLAYERS, GOALS, SPEED_NAMES } from './modes';
 import { MAX_SCORES } from './scores';
@@ -29,6 +29,56 @@ const INVADER = [
   ['.#....#.', '..#..#..', '.######.', '##.##.##', '########', '#.####.#', '#.#..#.#', '...##...'],
   ['.#....#.', '#.#..#.#', '#.######', '###.##.#', '.#######', '..####..', '.#.##.#.', '#......#'],
 ];
+
+// The gorilla (drawn with PixelLab) and his barrel.
+const KONG_COLORS: Record<string, string> = {
+  a: '#000000', b: '#fdd999', c: '#683e25', d: '#51301f', e: '#353241', f: '#f9bb8d', g: '#8a5837', h: '#c33039', i: '#d09168', j: '#be815a', k: '#9c6540', l: '#e8a580', m: '#e3434a',
+};
+const KONG_UP_ARMS = [
+  '............................',
+  '............................',
+  '............aaaa............',
+  '............adda............',
+  '.....aa....adddda....aa.....',
+  '....agbaa..dccccd..aabga....',
+  '...agbjba.adbbbbda.abjbga...',
+  '...abkbjaafdbeebdfaajbkba...',
+  '..adidaa.afdgbbgdfa.aadida..',
+  '..addcaaaadibiibidaaaacdda..',
+  '..adccdcccdieeeeidcccdccda..',
+  '..adccdcccddbbbbddcccdccda..',
+  '...addddddcddddddcdddddda...',
+  '....aaaaddgbbhhbbgddaaaa....',
+  '........adgbbeebbgda........',
+  '........addgihhigdda........',
+  '........addibhmbidda........',
+  '........adcbbeebbcda........',
+  '........adcbbllbbcda........',
+  '........acddiiiiddca........',
+  '.......acccddddddccca.......',
+  '.......accddaaaaddcca.......',
+  '.......addda....addda.......',
+  '......aaddda....adddaa......',
+  '......abibia....aibiba......',
+  '......aaaaa......aaaaa......',
+  '............................',
+  '............................',
+];
+/** The chest beat: the arms (the outer columns) drop two rows, and get their outline back underneath. */
+const KONG_DOWN_ARMS = (() => {
+  const arm = (x: number) => x <= 9 || x >= 18;
+  const shifted = KONG_UP_ARMS.map((row, y) => [...row].map((ch, x) => (arm(x) && y >= 4 && y <= 13 ? (y < 6 ? '.' : KONG_UP_ARMS[y - 2][x]) : ch)));
+  return shifted.map((row, y) => row.map((ch, x) => (ch === '.' && arm(x) && y > 0 && !'.a'.includes(shifted[y - 1][x]) ? 'a' : ch)).join(''));
+})();
+const KONG_FRAMES = [KONG_UP_ARMS, KONG_DOWN_ARMS];
+const BARREL_COLORS: Record<string, string> = { a: '#000000', b: '#c87828', c: '#8a5837', d: '#585858' };
+const BARREL = ['..aaaaaa..', '.abbbbbba.', 'abbcbbcbba', 'adddddddda', 'abbcbbcbba', 'abbcbbcbba', 'adddddddda', 'abbcbbcbba', '.abbbbbba.', '..aaaaaa..'];
+/** The four turns of a tumble. */
+const BARREL_SPINS = [BARREL, rotate(BARREL), rotate(rotate(BARREL)), rotate(rotate(rotate(BARREL)))];
+function rotate(rows: string[]) {
+  const n = rows.length;
+  return rows.map((_, y) => rows.map((row) => row[y]).reverse().join('')).slice(0, n);
+}
 
 /** Pongman, 12 pixels across, centred on (x, y). `gape` is the mouth's half-angle in radians. */
 function drawPac(ctx: Ctx, x: number, y: number, dir: number, gape: number, color = PONGMAN, eye = true) {
@@ -234,6 +284,25 @@ export function drawCourt(ctx: Ctx, w: World, frame: number, still = false) {
     for (const l of inv.lasers) ctx.fillRect(Math.round(l.x), GRID_Y + Math.round(l.y), 1, 4);
   }
   ctx.restore();
+
+  // The gorilla, up from the bottom edge, and his barrels in the air with their landing marks.
+  if (w.kong) {
+    const k = w.kong;
+    const beat = k.phase === 'throwing' && (frame >> 3) % 2 === 1;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, W, H);
+    ctx.clip();
+    drawSprite(ctx, KONG_FRAMES[beat ? 1 : 0], 128 - 14, H - Math.round(k.up) + (KONG_UP - 28), KONG_COLORS);
+    ctx.restore();
+  }
+  for (const b of w.barrels) {
+    if ((frame >> 2) % 2) {
+      ctx.fillStyle = SIDE_COLORS[b.side];
+      for (const [dx, dy] of [[-2, -2], [2, -2], [0, 0], [-2, 2], [2, 2]]) ctx.fillRect(Math.round(b.tx) + dx, GRID_Y + Math.round(b.ty) + dy, 1, 1);
+    }
+    drawSprite(ctx, BARREL_SPINS[(b.t >> 3) % 4], Math.round(b.x) - 5, GRID_Y + Math.round(b.y) - 5, BARREL_COLORS);
+  }
 
   for (const p of w.popups) {
     if (p.life < 15 && (frame >> 1) % 2) continue;

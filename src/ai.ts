@@ -52,11 +52,16 @@ export class Brain {
     return d < 0 ? -1 : 1;
   }
 
-  /** A bomb about to land on the paddle: step aside. */
+  /** A bomb or a barrel about to land on the paddle: step aside. */
   private dodge(w: World): Move {
-    const inv = w.invasions.find((i) => i.side === this.side);
-    if (!inv || w.rng() > this.cpu.wit) return 0;
+    if (w.rng() > this.cpu.wit) return 0;
     const p = w.paddles[this.side];
+    for (const b of w.barrels) {
+      if (b.side !== this.side || b.t < b.flight - 45 || Math.abs(b.ty - p.y) > PADDLE_H / 2 + 8) continue;
+      return b.ty > p.y ? -1 : 1;
+    }
+    const inv = w.invasions.find((i) => i.side === this.side);
+    if (!inv) return 0;
     for (const bm of inv.bombs) {
       if (bm.y > p.y - PADDLE_H / 2 - 24 && bm.y < p.y && Math.abs(bm.x - (this.side === 0 ? 10 : 246)) < 4) return p.y > GRID_H / 2 ? -1 : 1;
     }

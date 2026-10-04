@@ -58,6 +58,16 @@ export const HELP_PAGES: HelpPage[] = [
     ],
   },
   {
+    title: 'THE GORILLA',
+    text: [
+      'NOW AND THEN A GORILLA CLIMBS UP AT THE BOTTOM, BEATS HIS CHEST AND LOBS BARRELS OVER THE MAZE AT THE PADDLES.',
+      '',
+      'A MARK SHOWS WHERE EACH BARREL WILL COME DOWN. STEP ASIDE: A BARREL ON YOUR PADDLE STUNS IT AND COSTS YOU 50.',
+      '',
+      'HE GOES AWAY BY HIMSELF AFTER FIVE.',
+    ],
+  },
+  {
     title: 'SCORING',
     text: [
       'GOAL: 500',
@@ -68,6 +78,7 @@ export const HELP_PAGES: HelpPage[] = [
       'INVADER SHOT: 50',
       'MAZE CLEARED: 1000',
       'DEATH: -100',
+      'BARREL ON YOUR PADDLE: -50',
       '',
       'AGAINST THE CPU YOUR POINTS GO ON THE TABLE, WIN OR LOSE. EACH DIFFICULTY HAS ITS OWN.',
     ],

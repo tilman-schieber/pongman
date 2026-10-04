@@ -31,7 +31,12 @@ const TOKEN_GAP = 420;
 const MAX_TOKENS = 3;
 
 /** How far each thing moves the marker on the bar; a goal is 100. */
-export const PULL = { goal: 100, dot: 2, pellet: 10, ghost: 20, alien: 10, shot: 5, death: -30, cleared: 100 };
+export const PULL = { goal: 100, dot: 2, pellet: 10, ghost: 20, alien: 10, shot: 5, death: -30, cleared: 100, barrel: -10 };
+export const KONG_UP = 26;
+const KONG_GAP = [2400, 4200];
+const KONG_THROWS = 5;
+const BARREL_FLIGHT = 100;
+const GRAVITY = 0.05;
 
 export const colX = (c: number) => c * TILE + TILE / 2;
 export const rowY = (r: number) => r * TILE + TILE / 2;
@@ -88,6 +93,29 @@ export interface Invasion {
   lasers: { x: number; y: number }[];
 }
 
+/** A barrel in the air: a lob from the gorilla to a spot in a lane. */
+export interface Barrel {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  /** Frames flown, of the flight's length. */
+  t: number;
+  flight: number;
+  /** Where it comes down. */
+  tx: number;
+  ty: number;
+  side: Side;
+}
+export interface Kong {
+  phase: 'rising' | 'throwing' | 'sinking';
+  /** How far he has come up from the bottom edge, in pixels. */
+  up: number;
+  timer: number;
+  thrown: number;
+  next: Side;
+}
+
 export interface Popup {
   x: number;
   y: number;
@@ -119,7 +147,10 @@ export type Sound =
   | 'zap'
   | 'bomb'
   | 'cleared'
-  | 'serve';
+  | 'serve'
+  | 'kong'
+  | 'throw'
+  | 'barrel';
 
 export type State = 'ready' | 'play' | 'goal' | 'over';
 
@@ -153,6 +184,10 @@ export class World {
   tokens: { cell: number; life: number }[] = [];
   tokenTimer = TOKEN_GAP;
   invasions: Invasion[] = [];
+  /** The gorilla, while he is up, and frames until he next comes; barrels fly on without him. */
+  kong: Kong | null = null;
+  kongTimer: number;
+  barrels: Barrel[] = [];
   points: [number, number] = [0, 0];
   goals: [number, number] = [0, 0];
   /** The tug of war: positive is yellow's way. The match ends at +-limit. */
@@ -178,6 +213,7 @@ export class World {
     this.grid = layout.grid;
     this.dots = new Uint8Array(layout.dots);
     this.limit = opt.target * PULL.goal;
+    this.kongTimer = KONG_GAP[0] + this.rng() * (KONG_GAP[1] - KONG_GAP[0]);
     this.paddles = [this.newPaddle(0), this.newPaddle(1)];
     this.server = this.rng() < 0.5 ? 0 : 1;
     this.ball = this.newBall(this.server);
@@ -227,7 +263,9 @@ export class World {
       this.stepBall(moves[this.ball.owner]);
       this.stepGhosts();
       this.stepTokens();
+      this.stepKong();
     }
+    this.stepBarrels();
     if (this.state === 'goal' && this.stateTimer >= 90) this.nextPoint();
     for (const inv of this.invasions) this.stepInvasion(inv);
     this.invasions = this.invasions.filter((inv) => inv.invaders.some((i) => i.alive) || inv.bombs.length);
@@ -334,6 +372,9 @@ export class World {
     // In the lanes he only ever flies straight.
     if (c < FIELD_C0 || c > FIELD_C1) return;
     b.dir = this.turnFor(c, r, b.dir, b.heading, steer);
+    // Out of the maze he goes wherever he is pointed, even back the way he came: catch him or
+    // it is the other side's goal.
+    if ((c === FIELD_C0 && b.dir === 3) || (c === FIELD_C1 && b.dir === 1)) b.heading = b.dir === 1 ? 1 : -1;
   }
 
   /** Shot into the maze wall: back he comes. */
@@ -642,6 +683,71 @@ export class World {
         return false;
       }
       return l.y > -8;
+    });
+  }
+
+  // ---------- the gorilla ----------
+
+  /** Now and then he climbs up at the bottom, beats his chest, and lobs barrels at the paddles. */
+  private stepKong() {
+    const k = this.kong;
+    if (!k) {
+      if (--this.kongTimer > 0) return;
+      this.kongTimer = KONG_GAP[0] + this.rng() * (KONG_GAP[1] - KONG_GAP[0]);
+      this.kong = { phase: 'rising', up: 0, timer: 0, thrown: 0, next: this.rng() < 0.5 ? 0 : 1 };
+      this.sounds.push('kong');
+      return;
+    }
+    k.timer++;
+    if (k.phase === 'rising') {
+      k.up = Math.min(KONG_UP, k.up + 0.8);
+      if (k.up >= KONG_UP) {
+        k.phase = 'throwing';
+        k.timer = 0;
+      }
+    } else if (k.phase === 'throwing') {
+      if (k.timer % 55 === 30) {
+        this.throwBarrel(k.next);
+        k.next = (1 - k.next) as Side;
+        if (++k.thrown >= KONG_THROWS) {
+          k.phase = 'sinking';
+          k.timer = 0;
+        }
+      }
+    } else if (k.timer > 45) {
+      k.up -= 0.8;
+      if (k.up <= 0) this.kong = null;
+    }
+  }
+
+  /** A lob from his hands to a lane: at the paddle, or wherever. */
+  private throwBarrel(side: Side) {
+    const p = this.paddles[side];
+    const x0 = 128, y0 = GRID_H - KONG_UP + 4;
+    const tx = this.laneX(side);
+    const ty = this.rng() < 0.6 ? clamp(p.y + (this.rng() - 0.5) * 16, 12, GRID_H - 12) : 12 + this.rng() * (GRID_H - 24);
+    const T = BARREL_FLIGHT;
+    this.barrels.push({ x: x0, y: y0, vx: (tx - x0) / T, vy: (ty - y0) / T - 0.5 * GRAVITY * T, t: 0, flight: T, tx, ty, side });
+    this.sounds.push('throw');
+  }
+
+  private stepBarrels() {
+    this.barrels = this.barrels.filter((b) => {
+      b.x += b.vx;
+      b.y += b.vy;
+      b.vy += GRAVITY;
+      if (++b.t < b.flight) return true;
+      // Down it comes: on the paddle, or in pieces on the ground.
+      const p = this.paddles[b.side];
+      if (Math.abs(b.ty - p.y) <= PADDLE_H / 2 + 5) {
+        p.stun = 45;
+        this.score(b.side, -50, PULL.barrel);
+        this.popup(b.tx, b.ty, '-50', SIDE_COLORS[b.side]);
+        this.shake = 5;
+        this.sounds.push('barrel');
+        this.burst(b.tx, b.ty, '#c87828', 10);
+      } else this.burst(b.tx, b.ty, '#c87828', 5);
+      return false;
     });
   }
 

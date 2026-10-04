@@ -102,6 +102,18 @@ export const sfx = {
     noise(0.2, 0.35, 500);
   },
   cleared: () => arp([72, 76, 79, 84, 79, 84, 88, 91], 0.07, 0.22),
+  /** The gorilla climbs up: drums and a growl. */
+  kong: () => {
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    for (let k = 0; k < 4; k++) perc.kick(t + k * 0.14, 0.5);
+    tone(90, 0.5, 'sawtooth', 0.18, t + 0.1, 60);
+  },
+  throw: () => tone(300, 0.12, 'triangle', 0.25, 0, 900),
+  barrel: () => {
+    tone(160, 0.2, 'square', 0.3, 0, 50);
+    noise(0.25, 0.4, 700);
+  },
   win: () => arp([72, 76, 79, 84, 0, 84, 88, 91, 96], 0.08, 0.22),
   lose: () => arp([67, 63, 60, 55, 51, 48], 0.12, 0.22),
   record: () => arp([76, 79, 88, 84, 86, 91], 0.07, 0.22),
