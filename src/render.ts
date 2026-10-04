@@ -363,29 +363,27 @@ function renderPlay(ctx: Ctx, game: Game, frame: number) {
   if (game.phase === 'over') drawOver(ctx, game, w, frame);
 }
 
-/** The tug of war: a bar with Pongman on it, pulled towards whoever is ahead. */
+/** The two bars: each fills towards the middle with what its side scores; a full one wins. */
 function drawBar(ctx: Ctx, w: World, frame: number) {
-  const x0 = 72, x1 = 184, y = 15;
-  ctx.fillStyle = DARK;
-  ctx.fillRect(x0, y, x1 - x0, 3);
-  for (const x of [x0, 128, x1 - 1]) ctx.fillRect(x, y - 2, 1, 7);
-  const t = w.lead / w.limit;
-  const mx = Math.round(128 + t * (x1 - x0) / 2);
-  ctx.fillStyle = t > 0 ? SIDE_COLORS[0] : SIDE_COLORS[1];
-  ctx.fillRect(Math.min(128, mx), y + 1, Math.abs(mx - 128), 1);
-  const owner = w.ball.owner;
-  const gape = w.state === 'over' ? 0 : [0.2, 0.6, 0.95, 0.6][(frame >> 3) % 4];
-  // He is drawn smaller here: 8 across.
-  ctx.fillStyle = SIDE_COLORS[owner];
-  for (let py = 0; py < 8; py++)
-    for (let px = 0; px < 8; px++) {
-      const dx = px - 3.5, dy = py - 3.5;
-      const r = Math.hypot(dx, dy);
-      if (r > 4.1) continue;
-      const facing = owner === 0 ? 1 : -1;
-      if (gape > 0 && Math.acos(Math.max(-1, Math.min(1, (dx * facing) / r))) < gape) continue;
-      ctx.fillRect(mx - 4 + px, y - 2 + py, 1, 1);
+  const y = 15, len = 52;
+  for (const side of [0, 1] as Side[]) {
+    const x0 = side === 0 ? 70 : 186;
+    const dir = side === 0 ? 1 : -1;
+    const t = w.fill[side] / w.limit;
+    const n = Math.round(t * len);
+    ctx.fillStyle = DARK;
+    ctx.fillRect(Math.min(x0, x0 + dir * len), y, len, 3);
+    ctx.fillStyle = t > 0.85 && (frame >> 3) % 2 ? WHITE : SIDE_COLORS[side];
+    if (n > 0) ctx.fillRect(Math.min(x0, x0 + dir * (n - 1)), y, n, 3);
+    // The end posts, and a pip at the tip.
+    ctx.fillStyle = LIGHT;
+    ctx.fillRect(x0 - (side === 0 ? 2 : -1), y - 2, 1, 7);
+    ctx.fillRect(x0 + dir * len + (side === 0 ? 1 : -2), y - 2, 1, 7);
+    if (n > 0 && n < len) {
+      ctx.fillStyle = WHITE;
+      ctx.fillRect(x0 + dir * (n - 1) + (side === 0 ? 0 : 0), y - 1, 1, 5);
     }
+  }
 }
 
 function drawHud(ctx: Ctx, game: Game, w: World, frame: number) {
@@ -428,7 +426,7 @@ function drawPause(ctx: Ctx, game: Game, w: World) {
   drawBox(ctx, 52, 72, 152, 80);
   drawTextCentered(ctx, 'PAUSED', 128, 82, YELLOW);
   drawTextCentered(ctx, `${game.sideName(0)} ${w.goals[0]} - ${w.goals[1]} ${game.sideName(1)}`, 128, 96);
-  drawTextCentered(ctx, `A LEAD OF ${w.opt.target} GOALS WINS`, 128, 108, GREY);
+  drawTextCentered(ctx, 'FILL YOUR BAR TO WIN', 128, 108, GREY);
   drawTextCentered(ctx, 'ENTER RESUME', 128, 124, LIGHT);
   drawTextCentered(ctx, 'BKSP QUIT', 128, 136, GREY);
 }
@@ -436,7 +434,7 @@ function drawPause(ctx: Ctx, game: Game, w: World) {
 function drawOver(ctx: Ctx, game: Game, w: World, frame: number) {
   ctx.fillStyle = 'rgba(0,0,0,0.6)';
   ctx.fillRect(0, GRID_Y, W, H - GRID_Y);
-  const winner: Side = w.lead > 0 ? 0 : 1;
+  const winner: Side = w.leader;
   drawBox(ctx, 44, 56, 168, 112);
   const title = game.solo ? (winner === 0 ? 'YOU WIN!' : 'CPU WINS') : `PLAYER ${winner + 1} WINS!`;
   drawTextCentered(ctx, title, 128, 66, SIDE_COLORS[winner]);
@@ -533,7 +531,7 @@ function renderTitle(ctx: Ctx, game: Game, frame: number) {
   const values: Record<(typeof MENU)[number], string> = {
     PLAYERS: PLAYERS[s.players],
     CPU: CPUS[s.cpu].name,
-    MATCH: `${GOALS[s.goals]} GOALS LEAD`,
+    MATCH: `${GOALS[s.goals]} GOALS BAR`,
     SPEED: SPEED_NAMES[s.speed],
     MUSIC: MUSIC_NAMES[s.music],
     HELP: 'HOW TO PLAY',

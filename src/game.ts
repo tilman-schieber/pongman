@@ -234,7 +234,7 @@ export class Game {
       this.musicOn = false;
       return;
     }
-    const lead = Math.abs(w.lead) / w.limit;
+    const lead = Math.max(w.fill[0], w.fill[1]) / w.limit;
     music.setIntensity(Math.min(5, Math.floor(lead * 4) + (w.state === 'play' ? 1 : 0)));
     music.setTempo(0.95 + this.settings.speed * 0.05 + Math.min(0.25, w.ball.rally * 0.02));
     music.setPower(w.power > 0);
@@ -298,7 +298,7 @@ export class Game {
     this.phase = 'over';
     this.timer = 0;
     music.stop();
-    const won = w.lead > 0;
+    const won = w.leader === 0;
     if (this.solo) won ? sfx.win() : sfx.lose();
     else sfx.win();
     this.prepareEntry();

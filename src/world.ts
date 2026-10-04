@@ -31,9 +31,10 @@ const TOKEN_GAP = 420;
 const INVADER_COUNT = 4;
 const INVADER_HP = 2;
 const MAX_TOKENS = 3;
+const REFILL_AT = 10;
 
 /** How far each thing moves the marker on the bar; a goal is 100. */
-export const PULL = { goal: 100, dot: 2, pellet: 10, ghost: 20, alien: 10, shot: 5, death: -30, cleared: 100, barrel: -10 };
+export const PULL = { goal: 100, dot: 2, pellet: 10, ghost: 20, alien: 10, shot: 5, death: -15, cleared: 100, barrel: -10, ram: -8 };
 export const KONG_UP = 26;
 const KONG_GAP = [2400, 4200];
 const KONG_THROWS = 5;
@@ -198,8 +199,8 @@ export class World {
   barrels: Barrel[] = [];
   points: [number, number] = [0, 0];
   goals: [number, number] = [0, 0];
-  /** The tug of war: positive is yellow's way. The match ends at +-limit. */
-  lead = 0;
+  /** Each side's bar: everything scored fills it, deaths and barrels drain it. A full bar wins. */
+  fill: [number, number] = [0, 0];
   limit: number;
   /** Who serves next. */
   server: Side = 0;
@@ -214,7 +215,7 @@ export class World {
   sounds: Sound[] = [];
   playTime = 0;
 
-  constructor(opt: Options, layout = generate(opt.rng, 0.5 + opt.rng() * 0.25, 3 + Math.floor(opt.rng() * 2))) {
+  constructor(opt: Options, layout = generate(opt.rng, 0.45 + opt.rng() * 0.3)) {
     this.opt = opt;
     this.rng = opt.rng;
     this.layout = layout;
@@ -306,7 +307,7 @@ export class World {
     b.timer = 0;
     b.heading = b.owner === 0 ? 1 : -1;
     b.dir = b.heading > 0 ? 1 : 3;
-    b.y = rowY(clamp(Math.round((b.y - TILE / 2) / TILE), 0, ROWS - 1));
+    b.y = rowY(clamp(Math.round((b.y - TILE / 2) / TILE), 1, ROWS - 2));
     this.sounds.push('serve');
   }
 
@@ -350,7 +351,6 @@ export class World {
         left -= dist;
         this.atCentre(steer);
       }
-      if (this.bounce()) break;
       if (this.eat()) break;
       if (this.reachPaddle()) break;
     }
@@ -369,8 +369,10 @@ export class World {
     }
     if (flat !== back && open(flat)) return flat;
     if (open(dir)) return dir;
-    // Nowhere forward: any way but back, away from the goal if need be.
-    for (const d of [0, 2, (flat + 2) % 4] as Dir[]) if (d !== back && open(d)) return d;
+    // Nowhere forward: up or down, towards the middle of the court for choice, or away from the
+    // goal if it must be. Never straight back.
+    const verticals: Dir[] = r < ROWS / 2 ? [2, 0] : [0, 2];
+    for (const d of [...verticals, (flat + 2) % 4] as Dir[]) if (d !== back && open(d)) return d;
     return back;
   }
 
@@ -385,22 +387,6 @@ export class World {
     // Out of the maze he goes wherever he is pointed, even back the way he came: catch him or
     // it is the other side's goal.
     if ((c === FIELD_C0 && b.dir === 3) || (c === FIELD_C1 && b.dir === 1)) b.heading = b.dir === 1 ? 1 : -1;
-  }
-
-  /** Shot into the maze wall: back he comes. */
-  private bounce() {
-    const b = this.ball;
-    if (b.dir !== 1 && b.dir !== 3) return false;
-    const r = rowOf(b.y);
-    // He may touch the wall before he turns; the lanes are narrow.
-    const entering = b.dir === 1 && b.x < colX(FIELD_C0) && b.x + 2 > FIELD_C0 * TILE ? FIELD_C0 : b.dir === 3 && b.x > colX(FIELD_C1) && b.x - 2 < (FIELD_C1 + 1) * TILE ? FIELD_C1 : -1;
-    if (entering < 0 || this.passable(entering, r)) return false;
-    b.x = entering === FIELD_C0 ? FIELD_C0 * TILE - 2 : (FIELD_C1 + 1) * TILE + 2;
-    b.heading = -b.heading as 1 | -1;
-    b.dir = b.heading > 0 ? 1 : 3;
-    this.sounds.push('wall');
-    this.burst(b.x + (entering === FIELD_C0 ? BALL_R : -BALL_R), b.y, '#3858fc', 4);
-    return true;
   }
 
   /** Dots and aliens under him. True when the field was cleared, which ends the step. */
@@ -426,7 +412,8 @@ export class World {
         this.sounds.push('waka');
         this.fire(b.owner, 1);
       }
-      if (this.dotsLeft === 0) {
+      // The last few dots are never worth the hunt: the maze is laid out afresh.
+      if (this.dotsLeft <= REFILL_AT) {
         this.score(b.owner, 1000, PULL.cleared);
         this.popup(b.x, b.y, 'MAZE CLEARED 1000', SIDE_COLORS[b.owner]);
         this.dots.set(this.layout.dots);
@@ -495,14 +482,19 @@ export class World {
     this.stateTimer = 0;
   }
 
-  /** Points for the record, and a pull on the bar. */
+  /** Points for the record, and some of the bar. */
   private score(side: Side, n: number, pull: number) {
     this.points[side] = Math.max(0, this.points[side] + n);
-    this.lead = clamp(this.lead + (side === 0 ? pull : -pull), -this.limit, this.limit);
-    if (Math.abs(this.lead) >= this.limit && this.state !== 'over') {
+    this.fill[side] = clamp(this.fill[side] + pull, 0, this.limit);
+    if (this.fill[side] >= this.limit && this.state !== 'over') {
       this.state = 'over';
       this.stateTimer = 0;
     }
+  }
+
+  /** Who is ahead, or who won. */
+  get leader(): Side {
+    return this.fill[1] > this.fill[0] ? 1 : 0;
   }
 
   // ---------- ghosts ----------
@@ -667,8 +659,18 @@ export class World {
       if (i.alive && i.y > GRID_H) i.alive = false;
       if (i.alive && i.y > 0 && this.rng() < 1 / 170) inv.bombs.push({ x: i.x + INVADER_W / 2 + (this.rng() < 0.5 ? -3 : 3), y: i.y + INVADER_H });
     }
-    // Bombs fall; one on the paddle stuns it.
+    // Ramming one with the paddle kills it, but it is bad for the bar.
     const px0 = FACE_X[inv.side] - (inv.side === 0 ? PADDLE_W : 0);
+    for (const i of inv.invaders) {
+      if (!i.alive || i.x > px0 + PADDLE_W || i.x + INVADER_W < px0 || i.y > p.y + PADDLE_H / 2 || i.y + INVADER_H < p.y - PADDLE_H / 2) continue;
+      i.alive = false;
+      this.score(inv.side, 0, PULL.ram);
+      this.popup(i.x + INVADER_W / 2, i.y, 'RAMMED', SIDE_COLORS[inv.side]);
+      this.burst(i.x + INVADER_W / 2, i.y + INVADER_H / 2, '#58d854', 8);
+      this.shake = 3;
+      this.sounds.push('bomb');
+    }
+    // Bombs fall; one on the paddle stuns it.
     inv.bombs = inv.bombs.filter((bm) => {
       bm.y += 1.3;
       if (bm.x >= px0 - 1 && bm.x <= px0 + PADDLE_W && bm.y >= p.y - PADDLE_H / 2 && bm.y <= p.y + PADDLE_H / 2) {

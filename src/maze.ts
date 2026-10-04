@@ -1,14 +1,15 @@
 // The court as a grid of 8-pixel tiles: a lane down each side for the paddles, and between them
 // a maze that is new for every match: corridors one tile wide on a 3-tile lattice, mirrored left
-// to right, with no dead ends, a ghost pen in the middle, and openings onto the lanes.
+// to right, with no dead ends and a ghost pen in the middle. The maze has no side walls: its
+// outermost corridors run along the lanes, so every row is open to them.
 import { Rng } from './rng';
 
 export const TILE = 8;
 export const COLS = 32;
 export const ROWS = 24;
 /** Maze columns; the lanes are either side. */
-export const FIELD_C0 = 4;
-export const FIELD_C1 = 27;
+export const FIELD_C0 = 5;
+export const FIELD_C1 = 26;
 
 export const LANE = 0;
 export const OPEN = 1;
@@ -23,14 +24,17 @@ export const cellAt = (c: number, r: number) => r * COLS + c;
 export const cx = (cell: number) => cell % COLS;
 export const cy = (cell: number) => Math.floor(cell / COLS);
 
-// The lattice, in maze columns (0-23): crossings at (X(i), Y(j)), two wall tiles apart.
+// The lattice, in maze columns (0-21): crossings at (X(i), Y(j)), two wall tiles apart. The
+// first and last columns of crossings sit right on the lanes.
 const NX = 8;
 const NY = 8;
-const X = (i: number) => 1 + 3 * i;
+const X = (i: number) => 3 * i;
 const Y = (j: number) => 1 + 3 * j;
+/** Rows on which a shot can go straight in: the lattice rows. */
+export const LATTICE_ROWS = Array.from({ length: NY }, (_, j) => Y(j));
 
 /** The pen: the ghosts' home, in screen pixels. */
-export const HOUSE_X = (FIELD_C0 + 12) * TILE;
+export const HOUSE_X = (FIELD_C0 + 11) * TILE;
 export const HOUSE_Y = Y(3) * TILE + TILE / 2;
 /** Where they come out: above the door. */
 export const DOOR_Y = Y(2) * TILE + TILE / 2;
@@ -40,7 +44,7 @@ export interface Layout {
   grid: Uint8Array;
   /** DOT or PELLET per tile, 0 for none. */
   dots: Uint8Array;
-  /** Rows on which the maze opens onto the lanes. */
+  /** Rows on which a shot from a lane goes straight into the maze. */
   openings: number[];
 }
 
@@ -53,7 +57,7 @@ function shuffle<T>(a: T[], rng: Rng) {
 }
 
 /** A new maze. `sparse` is the share of removable corridors taken out: more gives bigger blocks. */
-export function generate(rng: Rng, sparse = 0.6, openings = 3): Layout {
+export function generate(rng: Rng, sparse = 0.6): Layout {
   // Corridors between neighbouring crossings: h[j][i] runs right from (i, j), v[j][i] down from it.
   const h = Array.from({ length: NY }, () => new Array<boolean>(NX - 1).fill(true));
   const v = Array.from({ length: NY - 1 }, () => new Array<boolean>(NX).fill(true));
@@ -170,25 +174,13 @@ export function generate(rng: Rng, sparse = 0.6, openings = 3): Layout {
       if (i < NX - 1 && h[j][i]) grid[at(X(i) + 1, Y(j))] = grid[at(X(i) + 2, Y(j))] = OPEN;
       if (j < NY - 1 && v[j][i]) grid[at(X(i), Y(j) + 1)] = grid[at(X(i), Y(j) + 2)] = OPEN;
     }
-  for (let y = Y(2) + 2; y <= Y(4) - 2; y++) for (let x = 9; x <= 14; x++) grid[at(x, y)] = HOUSE;
-  grid[at(11, Y(2) + 1)] = grid[at(12, Y(2) + 1)] = DOOR;
-
-  // Openings onto the lanes, the same rows both sides, never two next to each other.
-  const rows = shuffle([0, 1, 2, 3, 4, 5, 6, 7], rng);
-  const open: number[] = [];
-  for (const j of rows) {
-    if (open.length >= openings) break;
-    if (open.some((t) => Math.abs(t - j) < 2)) continue;
-    open.push(j);
-    grid[at(0, Y(j))] = grid[at(FIELD_C1 - FIELD_C0, Y(j))] = OPEN;
-  }
+  for (let y = Y(2) + 2; y <= Y(4) - 2; y++) for (let x = X(2) + 2; x <= X(5) - 2; x++) grid[at(x, y)] = HOUSE;
+  grid[at(X(3) + 1, Y(2) + 1)] = grid[at(X(3) + 2, Y(2) + 1)] = DOOR;
 
   const dots = new Uint8Array(grid.length);
-  for (let c = 0; c < grid.length; c++) {
-    const x = cx(c) - FIELD_C0;
-    if (grid[c] !== OPEN || x === 0 || x === FIELD_C1 - FIELD_C0) continue;
-    dots[c] = DOT;
-  }
+  for (let c = 0; c < grid.length; c++) if (grid[c] === OPEN) dots[c] = DOT;
   for (const [i, j] of PELLET_NODES) dots[at(X(i), Y(j))] = PELLET;
-  return { grid, dots, openings: open.map(Y).sort((a, b) => a - b) };
+  // Straight in: lattice rows whose first corridor is there.
+  const openings = LATTICE_ROWS.filter((r) => grid[at(1, r)] === OPEN);
+  return { grid, dots, openings };
 }
