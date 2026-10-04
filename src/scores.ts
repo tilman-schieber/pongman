@@ -4,9 +4,7 @@ import { CPUS, Difficulty } from './modes';
 export interface ScoreEntry {
   name: string;
   score: number;
-  /** The final goals, yours first. */
-  won: number;
-  lost: number;
+  won: boolean;
   /** Longest rally. */
   rally: number;
 }
@@ -36,8 +34,7 @@ const isEntry = (e: unknown): e is ScoreEntry =>
 const normalize = (e: ScoreEntry): ScoreEntry => ({
   name: e.name.slice(0, 6),
   score: e.score,
-  won: Number(e.won) || 0,
-  lost: Number(e.lost) || 0,
+  won: !!e.won,
   rally: Number(e.rally) || 0,
 });
 

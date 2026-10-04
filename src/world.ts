@@ -167,7 +167,7 @@ export interface Options {
   rng: Rng;
   /** Ball speed at the serve. */
   speed: number;
-  /** The lead that wins, in goals. */
+  /** Goals' worth that fills a bar. */
   target: number;
 }
 
@@ -198,7 +198,6 @@ export class World {
   kongTimer: number;
   barrels: Barrel[] = [];
   points: [number, number] = [0, 0];
-  goals: [number, number] = [0, 0];
   /** Each side's bar: everything scored fills it, deaths and barrels drain it. A full bar wins. */
   fill: [number, number] = [0, 0];
   limit: number;
@@ -464,7 +463,6 @@ export class World {
   }
 
   private goal(scorer: Side) {
-    this.goals[scorer]++;
     this.score(scorer, 500, PULL.goal);
     this.lastGoal = scorer;
     this.server = (1 - scorer) as Side;

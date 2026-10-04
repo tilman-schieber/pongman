@@ -227,7 +227,7 @@ export class Game {
     sfx.start();
   }
 
-  /** The music plays through the match and swells with the goals. */
+  /** The music plays through the match and swells as the bars fill. */
   private stepMusic(w: World) {
     if (w.state === 'over' || !this.musicWanted) {
       if (this.musicOn) music.stop();
@@ -321,7 +321,7 @@ export class Game {
     this.scoresView = this.settings.cpu;
     const w = this.world!;
     if (!this.solo || w.points[0] <= 0) return;
-    const entry: ScoreEntry = { name: '', score: w.points[0], won: w.goals[0], lost: w.goals[1], rally: w.bestRally };
+    const entry: ScoreEntry = { name: '', score: w.points[0], won: w.leader === 0, rally: w.bestRally };
     // A record never named (the page was closed mid-entry) makes way.
     const list = (this.tables[this.cpu.id] = this.tables[this.cpu.id].filter((e) => e.name.trim()));
     const at = rankFor(list, entry);

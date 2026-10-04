@@ -22,7 +22,7 @@ export const CPUS: Cpu[] = [
 ];
 
 export const PLAYERS = ['1 PLAYER', '2 PLAYERS'];
-/** The lead, in goals, that wins a match. */
+/** Goals' worth that fills a bar. */
 export const GOALS = [3, 5, 7, 11];
 /** Ball speed in pixels per frame at the serve, for SPEED 1-3. */
 export const SPEEDS = [1.1, 1.4, 1.75];

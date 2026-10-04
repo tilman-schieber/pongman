@@ -365,23 +365,23 @@ function renderPlay(ctx: Ctx, game: Game, frame: number) {
 
 /** The two bars: each fills towards the middle with what its side scores; a full one wins. */
 function drawBar(ctx: Ctx, w: World, frame: number) {
-  const y = 15, len = 52;
+  const y = 5, len = 52;
   for (const side of [0, 1] as Side[]) {
     const x0 = side === 0 ? 70 : 186;
     const dir = side === 0 ? 1 : -1;
     const t = w.fill[side] / w.limit;
     const n = Math.round(t * len);
     ctx.fillStyle = DARK;
-    ctx.fillRect(Math.min(x0, x0 + dir * len), y, len, 3);
+    ctx.fillRect(Math.min(x0, x0 + dir * len), y, len, 5);
     ctx.fillStyle = t > 0.85 && (frame >> 3) % 2 ? WHITE : SIDE_COLORS[side];
-    if (n > 0) ctx.fillRect(Math.min(x0, x0 + dir * (n - 1)), y, n, 3);
+    if (n > 0) ctx.fillRect(Math.min(x0, x0 + dir * (n - 1)), y, n, 5);
     // The end posts, and a pip at the tip.
     ctx.fillStyle = LIGHT;
-    ctx.fillRect(x0 - (side === 0 ? 2 : -1), y - 2, 1, 7);
-    ctx.fillRect(x0 + dir * len + (side === 0 ? 1 : -2), y - 2, 1, 7);
+    ctx.fillRect(x0 - (side === 0 ? 2 : -1), y - 2, 1, 9);
+    ctx.fillRect(x0 + dir * len + (side === 0 ? 1 : -2), y - 2, 1, 9);
     if (n > 0 && n < len) {
       ctx.fillStyle = WHITE;
-      ctx.fillRect(x0 + dir * (n - 1) + (side === 0 ? 0 : 0), y - 1, 1, 5);
+      ctx.fillRect(x0 + dir * (n - 1), y - 1, 1, 7);
     }
   }
 }
@@ -403,7 +403,6 @@ function drawHud(ctx: Ctx, game: Game, w: World, frame: number) {
       drawText(ctx, score, 252 - textWidth(name) - 5 - textWidth(score), 3, bright ? WHITE : LIGHT);
     }
   }
-  drawTextCentered(ctx, `${w.goals[0]} - ${w.goals[1]}`, 128, 3, WHITE);
   drawBar(ctx, w, frame);
 
   if (w.ball.rally > 0 && w.state === 'play') drawText(ctx, `RALLY ${w.ball.rally}`, 4, 15, w.ball.rally >= 10 ? YELLOW : GREY);
@@ -425,7 +424,7 @@ function drawPause(ctx: Ctx, game: Game, w: World) {
   ctx.fillRect(0, GRID_Y, W, H - GRID_Y);
   drawBox(ctx, 52, 72, 152, 80);
   drawTextCentered(ctx, 'PAUSED', 128, 82, YELLOW);
-  drawTextCentered(ctx, `${game.sideName(0)} ${w.goals[0]} - ${w.goals[1]} ${game.sideName(1)}`, 128, 96);
+  drawTextCentered(ctx, `${game.sideName(0)} ${w.points[0]}   ${game.sideName(1)} ${w.points[1]}`, 128, 96);
   drawTextCentered(ctx, 'FILL YOUR BAR TO WIN', 128, 108, GREY);
   drawTextCentered(ctx, 'ENTER RESUME', 128, 124, LIGHT);
   drawTextCentered(ctx, 'BKSP QUIT', 128, 136, GREY);
@@ -437,8 +436,7 @@ function drawOver(ctx: Ctx, game: Game, w: World, frame: number) {
   const winner: Side = w.leader;
   drawBox(ctx, 44, 56, 168, 112);
   const title = game.solo ? (winner === 0 ? 'YOU WIN!' : 'CPU WINS') : `PLAYER ${winner + 1} WINS!`;
-  drawTextCentered(ctx, title, 128, 66, SIDE_COLORS[winner]);
-  drawTextCentered(ctx, `${w.goals[0]} - ${w.goals[1]}`, 128, 78, WHITE);
+  drawTextCentered(ctx, title, 128, 70, SIDE_COLORS[winner]);
   const rows: [string, string, string][] = [
     ['POINTS', String(w.points[0]), String(w.points[1])],
     ['GHOSTS', String(w.ghostsEaten[0]), String(w.ghostsEaten[1])],
@@ -573,7 +571,7 @@ function renderScores(ctx: Ctx, game: Game, frame: number) {
   drawBox(ctx, 24, 12, 208, 176);
   drawTextCentered(ctx, entering ? 'NEW RECORD!' : 'HIGH SCORES', 128, 20, entering ? YELLOW : WHITE);
   drawTextCentered(ctx, entering ? `CPU ${cpu.name}` : `< CPU ${cpu.name} >`, 128, 32, LIGHT);
-  const cols: [string, number][] = [['NAME', 50], ['SCORE', 94], ['GOALS', 142], ['RALLY', 184]];
+  const cols: [string, number][] = [['NAME', 50], ['SCORE', 94], ['RESULT', 142], ['RALLY', 184]];
   for (const [label, x] of cols) drawText(ctx, label, x, 44, GREY);
   ctx.fillStyle = '#585858';
   ctx.fillRect(34, 53, 188, 1);
@@ -599,7 +597,7 @@ function renderScores(ctx: Ctx, game: Game, frame: number) {
       }
     } else drawText(ctx, e.name.slice(0, NAME_LEN), 50, y, color);
     drawText(ctx, pad(e.score, 6), 94, y, color);
-    drawText(ctx, `${e.won}-${e.lost}`, 142, y, e.won > e.lost ? color : GREY);
+    drawText(ctx, e.won ? 'WON' : 'LOST', 142, y, e.won ? color : GREY);
     drawText(ctx, String(e.rally), 184, y, GREY);
   }
 

@@ -13,7 +13,7 @@ Each side has a bar at the top: everything you score fills yours, and a goal —
 | 1 PLAYER | You are yellow, on the left. The CPU plays red: EASY, NORMAL or HARD. Your points go on the high score table of that difficulty, win or lose. |
 | 2 PLAYERS | Yellow plays W and S, red plays the arrow keys. Or one gamepad each. |
 
-MATCH sets how many goals' worth fills a bar (3, 5, 7 or 11; dots and the rest count in goal fractions), SPEED how fast he flies at the shot. He gets faster with every catch of a rally.
+MATCH sets how much fills a bar (3, 5, 7 or 11 goals' worth; dots and the rest count in goal fractions), SPEED how fast he flies at the shot. He gets faster with every catch of a rally.
 
 ## The court
 

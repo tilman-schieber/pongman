@@ -121,7 +121,7 @@ export const sfx = {
 
 // ---------- music ----------
 // A loop of sixteenths over Am G F E. Intensity 0-5 follows the match: instruments join as
-// the goals mount up.
+// the bars fill up.
 
 interface Tune {
   /** Seconds per unit at tempo 1. */
