@@ -25,9 +25,15 @@ const GHOST_FEET = [
   ['##.##..##.##', '#...#..#...#'],
   ['####.##.####', '.##..##..##.'],
 ];
-const INVADER = [
+/** The alien token in the maze, 8 across. */
+const ALIEN_SPRITE = [
   ['.#....#.', '..#..#..', '.######.', '##.##.##', '########', '#.####.#', '#.#..#.#', '...##...'],
   ['.#....#.', '#.#..#.#', '#.######', '###.##.#', '.#######', '..####..', '.#.##.#.', '#......#'],
+];
+/** The invaders in the lanes, 14 across. */
+const INVADER = [
+  ['...#......#...', '....#....#....', '...########...', '..##.####.##..', '.############.', '##############', '#.##########.#', '#.#........#.#', '...##....##...', '..##......##..'],
+  ['...#......#...', '#...#....#...#', '#..########..#', '#.##.####.##.#', '##############', '.############.', '..##########..', '..#........#..', '.#.#......#.#.', '#..#......#..#'],
 ];
 
 // The gorilla (drawn with PixelLab) and his barrel.
@@ -249,7 +255,7 @@ export function drawCourt(ctx: Ctx, w: World, frame: number, still = false) {
   for (const t of w.tokens) {
     if (t.life < 180 && (frame >> 2) % 2) continue;
     const x = colX(cx(t.cell)) - 4, y = GRID_Y + rowY(cy(t.cell)) - 4;
-    drawSprite(ctx, INVADER[(frame >> 4) % 2], x, y, { '#': ALIEN });
+    drawSprite(ctx, ALIEN_SPRITE[(frame >> 4) % 2], x, y, { '#': ALIEN });
   }
   for (const g of w.ghosts) if (g.state !== 'home' || (frame >> 3) % 2) drawGhost(ctx, w, g, frame);
   drawBall(ctx, w, w.ball, frame);
@@ -277,7 +283,7 @@ export function drawCourt(ctx: Ctx, w: World, frame: number, still = false) {
   ctx.rect(0, GRID_Y - 4, W, GRID_H + 4);
   ctx.clip();
   for (const inv of w.invasions) {
-    for (const i of inv.invaders) if (i.alive) drawSprite(ctx, INVADER[(frame >> 4) % 2], Math.round(i.x), GRID_Y + Math.round(i.y), { '#': ALIEN });
+    for (const i of inv.invaders) if (i.alive) drawSprite(ctx, INVADER[(frame >> 4) % 2], Math.round(i.x), GRID_Y + Math.round(i.y), { '#': i.flash > 0 && (frame >> 1) % 2 ? WHITE : ALIEN });
     ctx.fillStyle = WHITE;
     for (const b of inv.bombs) ctx.fillRect(Math.round(b.x) + ((frame >> 1) % 2), GRID_Y + Math.round(b.y), 1, 3);
     ctx.fillStyle = SIDE_COLORS[inv.side];

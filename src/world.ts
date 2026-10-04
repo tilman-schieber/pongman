@@ -28,6 +28,8 @@ const GHOST_R = 6;
 const POWER_FRAMES = 420;
 const TOKEN_LIFE = 900;
 const TOKEN_GAP = 420;
+const INVADER_COUNT = 4;
+const INVADER_HP = 2;
 const MAX_TOKENS = 3;
 
 /** How far each thing moves the marker on the bar; a goal is 100. */
@@ -50,8 +52,6 @@ export interface Paddle {
   y: number;
   /** Frames it can't move after a bomb. */
   stun: number;
-  /** Frames to the next laser while invaded. */
-  reload: number;
   move: Move;
 }
 
@@ -68,6 +68,8 @@ export interface Ball {
   timer: number;
   /** Paddle hits this rally. */
   rally: number;
+  /** Where on the paddle he sits, from its centre. */
+  hold: number;
 }
 
 export type GhostState = 'home' | 'leaving' | 'roam' | 'eyes';
@@ -80,10 +82,16 @@ export interface Ghost {
   wait: number;
 }
 
+export const INVADER_W = 14;
+export const INVADER_H = 10;
 export interface Invader {
   x: number;
   y: number;
   alive: boolean;
+  /** Lasers it still takes. */
+  hp: number;
+  /** Frames it flashes after a hit. */
+  flash: number;
 }
 export interface Invasion {
   side: Side;
@@ -222,11 +230,11 @@ export class World {
   }
 
   private newPaddle(side: Side): Paddle {
-    return { side, y: GRID_H / 2, stun: 0, reload: 0, move: 0 };
+    return { side, y: GRID_H / 2, stun: 0, move: 0 };
   }
 
   private newBall(owner: Side): Ball {
-    return { x: this.heldX(owner), y: this.paddles[owner].y, dir: owner === 0 ? 1 : 3, heading: owner === 0 ? 1 : -1, speed: this.opt.speed, owner, state: 'held', timer: 0, rally: 0 };
+    return { x: this.heldX(owner), y: this.paddles[owner].y, dir: owner === 0 ? 1 : 3, heading: owner === 0 ? 1 : -1, speed: this.opt.speed, owner, state: 'held', timer: 0, rally: 0, hold: 0 };
   }
 
   private heldX(side: Side) {
@@ -254,6 +262,11 @@ export class World {
   update(moves: [Move, Move]) {
     this.stateTimer++;
     for (const p of this.paddles) this.movePaddle(p, moves[p.side]);
+    // On a paddle he rides along with it, whatever else is going on.
+    if (this.ball.state === 'held') {
+      this.ball.x = this.heldX(this.ball.owner);
+      this.ball.y = this.paddles[this.ball.owner].y + this.ball.hold;
+    }
     if (this.state === 'ready' && this.stateTimer >= 60) {
       this.state = 'play';
       this.stateTimer = 0;
@@ -301,7 +314,6 @@ export class World {
 
   private stepBall(steer: Move) {
     const b = this.ball;
-    const p = this.paddles[b.owner];
     if (b.state === 'dead') {
       // A moment of nothing, then the other side has him.
       if (++b.timer >= DEATH_FRAMES) {
@@ -312,8 +324,6 @@ export class World {
       return;
     }
     if (b.state === 'held') {
-      b.x = this.heldX(b.owner);
-      b.y = p.y;
       if (++b.timer >= HOLD_FRAMES) this.launch();
       return;
     }
@@ -410,9 +420,11 @@ export class World {
         this.chain = 0;
         for (const g of this.ghosts) if (g.state === 'roam') g.dir = ((g.dir + 2) % 4) as Dir;
         this.sounds.push('power');
+        this.fire(b.owner, 4);
       } else {
         this.score(b.owner, 10, PULL.dot);
         this.sounds.push('waka');
+        this.fire(b.owner, 1);
       }
       if (this.dotsLeft === 0) {
         this.score(b.owner, 1000, PULL.cleared);
@@ -447,9 +459,10 @@ export class World {
       b.owner = side;
       b.timer = 0;
       b.rally++;
+      b.hold = clamp(b.y - p.y, -(PADDLE_H / 2 - 3), PADDLE_H / 2 - 3);
       b.speed = Math.min(this.opt.speed * 2.3, b.speed + 0.1);
       b.x = this.heldX(side);
-      b.y = p.y;
+      b.y = p.y + b.hold;
       b.dir = side === 0 ? 1 : 3;
       this.bestRally = Math.max(this.bestRally, b.rally);
       this.sounds.push('bat');
@@ -626,30 +639,33 @@ export class World {
     const there = this.invasions.find((i) => i.side === side);
     if (there) {
       // Reinforcements join the ones already there.
-      for (const i of there.invaders) if (!i.alive) i.alive = true;
+      for (const i of there.invaders) if (!i.alive) {
+        i.alive = true;
+        i.hp = INVADER_HP;
+      }
       this.sounds.push('invade');
       return;
     }
-    const x0 = this.laneX(side) - 4;
+    const x0 = this.laneX(side) - INVADER_W / 2;
     const invaders: Invader[] = [];
-    for (let row = 0; row < 6; row++) invaders.push({ x: x0, y: -12 - row * 11, alive: true });
-    this.invasions.push({ side, invaders, vx: 0.35, bombs: [], lasers: [] });
+    for (let row = 0; row < INVADER_COUNT; row++) invaders.push({ x: x0, y: -INVADER_H - 2 - row * (INVADER_H + 4), alive: true, hp: INVADER_HP, flash: 0 });
+    this.invasions.push({ side, invaders, vx: 0.3, bombs: [], lasers: [] });
     this.popup(side === 0 ? 40 : 216, 16, 'INVASION!', '#58d854');
     this.sounds.push('invade');
   }
 
   private stepInvasion(inv: Invasion) {
     const p = this.paddles[inv.side];
-    const mid = this.laneX(inv.side) - 4;
-    const alive = inv.invaders.filter((i) => i.alive);
+    const mid = this.laneX(inv.side) - INVADER_W / 2;
     // The column sways over the paddle and sinks.
     const x = inv.invaders[0].x + inv.vx;
-    if (x < mid - 7 || x > mid + 7) inv.vx = -inv.vx;
+    if (x < mid - 6 || x > mid + 6) inv.vx = -inv.vx;
     for (const i of inv.invaders) {
       i.x += inv.vx;
-      i.y += 0.18;
+      i.y += 0.12;
+      if (i.flash > 0) i.flash--;
       if (i.alive && i.y > GRID_H) i.alive = false;
-      if (i.alive && i.y > 0 && this.rng() < 1 / 260) inv.bombs.push({ x: i.x + 4, y: i.y + 8 });
+      if (i.alive && i.y > 0 && this.rng() < 1 / 170) inv.bombs.push({ x: i.x + INVADER_W / 2 + (this.rng() < 0.5 ? -3 : 3), y: i.y + INVADER_H });
     }
     // Bombs fall; one on the paddle stuns it.
     const px0 = FACE_X[inv.side] - (inv.side === 0 ? PADDLE_W : 0);
@@ -664,26 +680,34 @@ export class World {
       }
       return bm.y < GRID_H;
     });
-    // The paddle fires while anything is up there.
-    if (alive.length && p.stun === 0 && --p.reload <= 0) {
-      p.reload = 34;
-      inv.lasers.push({ x: this.laneX(inv.side), y: p.y - PADDLE_H / 2 });
-      this.sounds.push('laser');
-    }
     inv.lasers = inv.lasers.filter((l) => {
       l.y -= 3;
       for (const i of inv.invaders) {
-        if (!i.alive || l.x < i.x || l.x > i.x + 8 || l.y < i.y || l.y > i.y + 8) continue;
+        if (!i.alive || l.x < i.x || l.x > i.x + INVADER_W || l.y < i.y || l.y > i.y + INVADER_H) continue;
+        i.flash = 10;
+        if (--i.hp > 0) {
+          this.sounds.push('zap');
+          return false;
+        }
         i.alive = false;
         this.score(inv.side, 50, PULL.shot);
         this.shots[inv.side]++;
-        this.popup(i.x + 4, i.y, '50', '#58d854');
-        this.burst(i.x + 4, i.y + 4, '#58d854', 6);
+        this.popup(i.x + INVADER_W / 2, i.y, '50', '#58d854');
+        this.burst(i.x + INVADER_W / 2, i.y + INVADER_H / 2, '#58d854', 8);
         this.sounds.push('zap');
         return false;
       }
       return l.y > -8;
     });
+  }
+
+  /** The paddle fires only when its Pongman eats: a laser a dot, while invaders are up there. */
+  private fire(side: Side, shots: number) {
+    const inv = this.invasions.find((i) => i.side === side);
+    if (!inv || !inv.invaders.some((i) => i.alive)) return;
+    const p = this.paddles[side];
+    for (let k = 0; k < shots; k++) inv.lasers.push({ x: this.laneX(side), y: p.y - PADDLE_H / 2 - k * 6 });
+    this.sounds.push('laser');
   }
 
   // ---------- the gorilla ----------

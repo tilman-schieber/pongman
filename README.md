@@ -2,7 +2,7 @@
 
 Pong, Pac-Man, Space Invaders and a bit of Donkey Kong in one arcade cabinet, built in TypeScript with no runtime dependencies. Runs entirely in the browser. A sibling of [Scales](https://github.com/tilman-schieber/scales) and [Snackman](https://github.com/tilman-schieber/snackman): same screen, same font, same high score tables. A recreation of kingPenguin's [Pacapong](https://kingpenguin.itch.io/pacapong) (2015), with the rules spelled out.
 
-The ball is Pongman. He sticks to your paddle, then he is shot across a maze that is new for every match — into an opening, or off the wall straight back at you. Whoever shot him **steers** him: while he flies, that paddle's moves are his turns; let go and he heads for the other side. The dots he eats are yours. Run him into a ghost and he dies, and the other side has him on their paddle at once.
+The ball is Pongman. He sticks to your paddle where he hit it, then he is shot across a maze that is new for every match — into an opening, or off the wall straight back at you. Whoever shot him **steers** him: while he flies, that paddle's moves are his turns; let go and he heads for the other side. The dots he eats are yours. Run him into a ghost and he dies, and the other side has him on their paddle at once.
 
 The bar at the top is a tug of war: everything you score pulls Pongman your way, and a goal — past the other paddle — is the big pull. Get him to your end and you win.
 
@@ -23,8 +23,8 @@ MATCH sets how many goals ahead wins (3, 5, 7 or 11; dots and the rest count in 
 | Dots | 10 each, to whoever is steering. Clear the maze for 1000 and it fills up again |
 | Ghosts | Three pale ghosts roam the maze. Run into one and Pongman dies: it costs 100, and the other side gets him. Eaten ghosts go home to the pen and come back out |
 | Power pellets | In the corners. The ghosts turn blue and can be eaten: 200, 400, 800, 1600 |
-| Aliens | Land in the maze now and then, up to three at once. Eat one (100) and six invaders drop into the **other** lane |
-| Invaders | They bomb the paddle in their lane; a hit stuns it for a moment. The paddle fires back by itself, 50 an invader |
+| Aliens | Land in the maze now and then, up to three at once. Eat one (100) and four invaders drop into the **other** lane |
+| Invaders | They bomb the paddle in their lane; a hit stuns it for a moment. The paddle there fires a laser every time its own Pongman eats a dot (a pellet is a burst), so the invaded player has to get the ball back and eat. Two hits down an invader, 50 each |
 | The gorilla | Climbs up at the bottom now and then, beats his chest and lobs five barrels over the maze at the paddles. A mark shows where each comes down; one on your paddle stuns it and costs 50 |
 | Goal | 500, and a whole goal's pull on the bar |
 

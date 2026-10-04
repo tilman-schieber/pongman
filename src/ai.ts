@@ -26,7 +26,7 @@ export class Brain {
       this.look = this.cpu.react;
       const err = (w.rng() * 2 - 1) * this.cpu.error;
       if (b.state === 'flying' && coming) this.target = b.y + err;
-      else if (b.state === 'held' && mine) this.target = this.aim(w, p.y) + err;
+      else if (b.state === 'held' && mine) this.target = this.aim(w, p.y + b.hold) - b.hold + err;
       else this.target = GRID_H / 2 + err * 2;
     }
     const dodge = this.dodge(w);
