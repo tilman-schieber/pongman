@@ -40,7 +40,7 @@ MATCH sets how much fills a bar (3, 5, 7 or 11 goals' worth; dots and the rest c
 | M | Music on/off |
 | H | High scores (title screen) |
 
-Gamepads: the first is yellow, the second red; stick or d-pad, any button for Enter. On a touch screen, drag on your half of the court; a tap is Enter.
+Gamepads: the first is yellow, the second red; stick or d-pad to move, A or Start for Enter (in play only Start pauses), B to go back, Select to quit from the pause screen, Y for the high scores on the title screen. Typing a name: Up/Down pick a letter, A enters it, B rubs one out. On a touch screen, drag on your half of the court; a tap is Enter.
 
 ## The CPU
 

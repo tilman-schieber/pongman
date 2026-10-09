@@ -84,9 +84,18 @@ function pollPads() {
     if (y > 0.5 || pressed(13)) now.add(down);
     if ((pad.axes[0] ?? 0) < -0.5 || pressed(14)) now.add('left');
     if ((pad.axes[0] ?? 0) > 0.5 || pressed(15)) now.add('right');
-    if (pressed(0) || pressed(9)) now.add('start');
+    // A confirms in the menus; in play only Start pauses.
+    if (pressed(9) || (pressed(0) && game.phase !== 'play')) now.add('start');
     if (pressed(1)) now.add('back');
-    for (const a of now) if (!padHeld[slot].has(a)) input.pressed.add(a);
+    if (pressed(8)) now.add('quit');
+    if (pressed(3) && game.phase === 'title') now.add('scores');
+    for (const a of now) {
+      if (padHeld[slot].has(a)) continue;
+      unlockAudio();
+      // Typing a name: A or Start enters it, B rubs out a letter.
+      if (game.phase === 'entry' && (a === 'start' || a === 'back')) input.typed.push(a === 'start' ? 'Enter' : 'Backspace');
+      else input.pressed.add(a);
+    }
     padHeld[slot] = now;
     slot++;
   }
