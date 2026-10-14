@@ -531,11 +531,12 @@ function renderTitle(ctx: Ctx, game: Game, frame: number) {
     CPU: CPUS[s.cpu].name,
     MATCH: `${GOALS[s.goals]} GOALS BAR`,
     SPEED: SPEED_NAMES[s.speed],
+    SEED: s.daily ? 'DAILY' : 'RANDOM',
     MUSIC: MUSIC_NAMES[s.music],
     HELP: 'HOW TO PLAY',
   };
   MENU.forEach((row, i) => {
-    const y = 77 + i * 12;
+    const y = 76 + i * 11;
     const on = i === game.menuRow;
     const enabled = game.rowEnabled(row);
     if (on) drawText(ctx, '>', 26, y, YELLOW);
@@ -569,7 +570,10 @@ function renderScores(ctx: Ctx, game: Game, frame: number) {
   ctx.fillRect(0, 0, W, H);
 
   drawBox(ctx, 24, 12, 208, 176);
-  drawTextCentered(ctx, entering ? 'NEW RECORD!' : 'HIGH SCORES', 128, 20, entering ? YELLOW : WHITE);
+  // The name is typed into your own table; afterwards the world table shows by default.
+  const world = game.scoresGlobal && !entering && !!game.global;
+  const title = entering ? 'NEW RECORD!' : world ? 'WORLD SCORES' : 'LOCAL SCORES';
+  drawTextCentered(ctx, title, 128, 20, entering ? YELLOW : WHITE);
   drawTextCentered(ctx, entering ? `CPU ${cpu.name}` : `< CPU ${cpu.name} >`, 128, 32, LIGHT);
   const cols: [string, number][] = [['NAME', 50], ['SCORE', 94], ['RESULT', 142], ['RALLY', 184]];
   for (const [label, x] of cols) drawText(ctx, label, x, 44, GREY);
@@ -577,11 +581,12 @@ function renderScores(ctx: Ctx, game: Game, frame: number) {
   ctx.fillRect(34, 53, 188, 1);
 
   const blink = (frame >> 4) % 2 === 0;
-  const list = game.tables[cpu.id];
+  const list = world ? (game.global?.[cpu.id] ?? []) : game.tables[cpu.id];
+  const myRow = game.scoresView === game.settings.cpu ? (world ? game.globalRank : game.entryRank) : -1;
   for (let i = 0; i < MAX_SCORES; i++) {
     const y = 58 + i * 12;
     const e = list[i];
-    const mine = i === game.entryRank && game.scoresView === game.settings.cpu;
+    const mine = i === myRow;
     const color = mine ? (entering || blink ? YELLOW : WHITE) : i < 3 ? WHITE : LIGHT;
     const n = String(i + 1);
     drawText(ctx, n, 45 - textWidth(n), y, mine ? color : GREY);
@@ -603,7 +608,8 @@ function renderScores(ctx: Ctx, game: Game, frame: number) {
 
   drawBox(ctx, 24, 194, 208, 24);
   if (entering) drawTextCentered(ctx, 'TYPE NAME  THEN ENTER', 128, 202);
-  else drawTextCentered(ctx, '< > DIFFICULTY   ENTER BACK', 128, 202, blink ? WHITE : LIGHT);
+  else
+    drawTextCentered(ctx, game.global ? `UP ${world ? 'LOCAL' : 'WORLD'}  < > CPU  ENTER BACK` : '< > DIFFICULTY   ENTER BACK', 128, 202, blink ? WHITE : LIGHT);
 }
 
 // ---------- help ----------

@@ -2,6 +2,8 @@
 
 Pong, Pac-Man, Space Invaders and a bit of Donkey Kong in one arcade cabinet, built in TypeScript with no runtime dependencies. Runs entirely in the browser. A sibling of [Scales](https://github.com/tilman-schieber/scales) and [Snackman](https://github.com/tilman-schieber/snackman): same screen, same font, same high score tables. A recreation of kingPenguin's [Pacapong](https://kingpenguin.itch.io/pacapong) (2015), with the rules spelled out.
 
+**Play:** https://gh.tschieber.de/pongman/
+
 The ball is Pongman. He sticks to your paddle where he hit it, then he is shot into a maze that is new for every match. Whoever shot him **steers** him: while he flies, that paddle's moves are his turns; let go and he heads for the other side. He never stops and never turns back. The dots he eats are yours. Run him into a ghost and he dies, and the other side has him on their paddle at once.
 
 Each side has a bar at the top: everything you score fills yours, and a goal — past the other paddle — is the big fill; a death or a barrel drains it. The first full bar wins.
@@ -14,6 +16,8 @@ Each side has a bar at the top: everything you score fills yours, and a goal —
 | 2 PLAYERS | Yellow plays W and S, red plays the arrow keys. Or one gamepad each. |
 
 MATCH sets how much fills a bar (3, 5, 7 or 11 goals' worth; dots and the rest count in goal fractions), SPEED how fast he flies at the shot. He gets faster with every catch of a rally.
+
+**Seed:** *Daily* gives everyone the same maze for the day.
 
 ## The court
 
@@ -50,7 +54,7 @@ It tracks the ball with a delay and some error, shoots at an opening, and when i
 
 A chiptune loop over four chords. Every match gets its own melody and key; instruments join in as the bars fill, and it breaks into a racing arpeggio while the ghosts are blue. MUSIC in the menu turns it on or off, and M mutes it at any time.
 
-High scores are kept per CPU difficulty in the browser's local storage.
+High scores: the top 10 per CPU difficulty, both worldwide and in your own browser (Up/Down switches between them on the score screen, Left/Right between the difficulties). World scores live in a small [Val Town](https://www.val.town/x/tilmanschieber/pongman-scores) val with a SQLite table; your own scores and settings stay in the browser's local storage, so they still work offline. Games finished while the server can't be reached wait in local storage and are sent the next time the score screen opens.
 
 The gorilla sprite was drawn with [PixelLab](https://pixellab.ai); everything else is hand-placed pixels in `src/render.ts`.
 

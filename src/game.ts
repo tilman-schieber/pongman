@@ -1,7 +1,7 @@
 import { CPUS, PLAYERS, GOALS, SPEEDS } from './modes';
-import { loadTables, saveTables, rankFor, ScoreEntry, Tables, MAX_SCORES, load, save } from './scores';
+import { loadTables, saveTables, rankFor, ScoreEntry, Tables, MAX_SCORES, load, save, fetchGlobal, submitGlobal, flushPending } from './scores';
 import { sfx, music } from './audio';
-import { makeRng, randomSeed } from './rng';
+import { hashString, makeRng, randomSeed, today } from './rng';
 import { World, Move, Side } from './world';
 import { Brain } from './ai';
 import { HELP_PAGES } from './help';
@@ -25,16 +25,18 @@ export interface Settings {
   cpu: number;
   goals: number;
   speed: number;
+  /** Daily: everyone gets the same mazes for the day. */
+  daily: boolean;
   music: number;
   /** M mutes without changing the selection. */
   muted: boolean;
 }
 
 export const MUSIC_NAMES = ['ON', 'OFF'];
-export const MENU = ['PLAYERS', 'CPU', 'MATCH', 'SPEED', 'MUSIC', 'HELP'] as const;
+export const MENU = ['PLAYERS', 'CPU', 'MATCH', 'SPEED', 'SEED', 'MUSIC', 'HELP'] as const;
 export const NAME_LEN = 6;
 const NAME_CHARS = ' ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-const DEFAULT_SETTINGS: Settings = { players: 0, cpu: 1, goals: 1, speed: 1, music: 0, muted: false };
+const DEFAULT_SETTINGS: Settings = { players: 0, cpu: 1, goals: 1, speed: 1, daily: false, music: 0, muted: false };
 
 function loadSettings(): Settings {
   try {
@@ -44,6 +46,7 @@ function loadSettings(): Settings {
     s.goals = Math.min(GOALS.length - 1, Math.max(0, s.goals | 0));
     s.speed = Math.min(SPEEDS.length - 1, Math.max(0, s.speed | 0));
     s.music = Math.min(MUSIC_NAMES.length - 1, Math.max(0, s.music | 0));
+    s.daily = !!s.daily;
     s.muted = !!s.muted;
     return s;
   } catch {
@@ -64,6 +67,13 @@ export class Game {
   private musicOn = false;
 
   tables: Tables = loadTables();
+  /** World top 10s from the server; null until loaded or while offline. */
+  global: Tables | null = null;
+  globalState: 'loading' | 'ok' | 'offline' = 'loading';
+  /** Show the world table (true) or this browser's own (false). */
+  scoresGlobal = true;
+  /** Row of the last game in the world table, or -1. */
+  globalRank = -1;
   scoresView = 0;
   entryRank = -1;
   entryName: string[] = [];
@@ -75,6 +85,28 @@ export class Game {
 
   constructor() {
     music.enabled = !this.settings.muted;
+    this.refreshGlobal();
+  }
+
+  private async refreshGlobal() {
+    // Games queued while offline go first, so the table includes them.
+    await flushPending();
+    const tables = await fetchGlobal();
+    if (tables) this.global = tables;
+    this.globalState = this.global ? 'ok' : 'offline';
+    // Without world scores, show this browser's own.
+    if (!this.global) this.scoresGlobal = false;
+  }
+
+  /** Posts a finished match to the world table and marks where it landed. */
+  private async submitGlobal(e: ScoreEntry) {
+    const cpu = this.cpu.id;
+    const res = await submitGlobal(cpu, e);
+    if (!res) return;
+    this.global ??= Object.fromEntries(CPUS.map((c) => [c.id, []])) as unknown as Tables;
+    this.global[cpu] = res.top;
+    this.globalState = 'ok';
+    this.globalRank = res.rank;
   }
 
   get solo() {
@@ -188,13 +220,16 @@ export class Game {
       if (row === 'CPU') s.cpu = wrap(s.cpu, CPUS.length);
       if (row === 'MATCH') s.goals = wrap(s.goals, GOALS.length);
       if (row === 'SPEED') s.speed = wrap(s.speed, SPEEDS.length);
+      if (row === 'SEED') s.daily = !s.daily;
       if (row === 'MUSIC') s.music = wrap(s.music, MUSIC_NAMES.length);
       sfx.select();
       this.saveSettings();
     }
     if (pressed.has('scores')) {
+      this.refreshGlobal();
       this.scoresView = s.cpu;
       this.entryRank = -1;
+      this.globalRank = -1;
       this.phase = 'scores';
       sfx.select();
     } else if (pressed.has('start')) this.startMatch();
@@ -215,7 +250,7 @@ export class Game {
   // ---------- a match ----------
 
   startMatch() {
-    this.seed = randomSeed();
+    this.seed = this.settings.daily ? hashString(`pongman:${today()}`) : randomSeed();
     this.world = this.newWorld(this.seed);
     this.brain = this.solo ? new Brain(1, this.cpu) : null;
     this.entryRank = -1;
@@ -318,6 +353,8 @@ export class Game {
 
   private prepareEntry() {
     this.entryRank = -1;
+    this.globalRank = -1;
+    this.scoresGlobal = !!this.global;
     this.scoresView = this.settings.cpu;
     const w = this.world!;
     if (!this.solo || w.points[0] <= 0) return;
@@ -325,11 +362,15 @@ export class Game {
     // A record never named (the page was closed mid-entry) makes way.
     const list = (this.tables[this.cpu.id] = this.tables[this.cpu.id].filter((e) => e.name.trim()));
     const at = rankFor(list, entry);
-    if (at < 0) return;
+    const last = (load('pongman.name') ?? '').slice(0, NAME_LEN);
+    if (at < 0) {
+      // Not a personal record, but it still goes to the world table under the last name used.
+      if (last.trim()) this.submitGlobal({ ...entry, name: last.trim() });
+      return;
+    }
     list.splice(at, 0, entry);
     list.length = Math.min(list.length, MAX_SCORES);
     this.entryRank = at;
-    const last = (load('pongman.name') ?? '').slice(0, NAME_LEN);
     this.entryName = last.padEnd(NAME_LEN, ' ').split('');
     this.entryCursor = Math.min(NAME_LEN - 1, last.length);
     this.entryFresh = last.length > 0;
@@ -369,25 +410,33 @@ export class Game {
 
   private commitName() {
     const name = this.entryName.join('').trim() || '------';
-    this.tables[this.cpu.id][this.entryRank].name = name;
+    const entry = this.tables[this.cpu.id][this.entryRank];
+    entry.name = name;
     saveTables(this.tables);
     save('pongman.name', name);
+    this.submitGlobal(entry);
     this.phase = 'scores';
     this.timer = 0;
     sfx.record();
   }
 
   private showScores() {
+    this.refreshGlobal();
     this.scoresView = this.settings.cpu;
     this.phase = 'scores';
     this.timer = 0;
   }
 
   private stepScores(pressed: Set<Action>) {
+    const ud = ['p1up', 'p1down', 'p2up', 'p2down'] as const;
+    if (ud.some((a) => pressed.has(a)) && this.global) {
+      this.scoresGlobal = !this.scoresGlobal;
+      sfx.move();
+    }
     const d = (pressed.has('right') ? 1 : 0) - (pressed.has('left') ? 1 : 0);
     if (d) {
       this.scoresView = (this.scoresView + d + CPUS.length) % CPUS.length;
-      this.entryRank = -1;
+      this.entryRank = this.globalRank = -1;
       sfx.select();
     }
     if (pressed.has('start') || pressed.has('back') || pressed.has('scores')) this.toTitle();
