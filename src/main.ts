@@ -2,6 +2,9 @@ import { Game, Action, Input } from './game';
 import { render, W, H, GRID_Y } from './render';
 import { unlockAudio } from './audio';
 import { GRID_H } from './world';
+import { setupHidPad, padAxes } from './hidpad';
+
+setupHidPad();
 
 const canvas = document.getElementById('screen') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;
@@ -78,12 +81,12 @@ function pollPads() {
     if (!pad || slot > 1) continue;
     const [up, down] = PAD_ACTIONS[slot];
     const now = new Set<Action>();
-    const y = pad.axes[1] ?? 0;
+    const [x = 0, y = 0] = padAxes(pad);
     const pressed = (i: number) => !!pad.buttons[i]?.pressed;
     if (y < -0.5 || pressed(12)) now.add(up);
     if (y > 0.5 || pressed(13)) now.add(down);
-    if ((pad.axes[0] ?? 0) < -0.5 || pressed(14)) now.add('left');
-    if ((pad.axes[0] ?? 0) > 0.5 || pressed(15)) now.add('right');
+    if (x < -0.5 || pressed(14)) now.add('left');
+    if (x > 0.5 || pressed(15)) now.add('right');
     // A confirms in the menus; in play only Start pauses.
     if (pressed(9) || (pressed(0) && game.phase !== 'play')) now.add('start');
     if (pressed(1)) now.add('back');
