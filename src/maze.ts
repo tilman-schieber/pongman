@@ -2,7 +2,7 @@
 // a maze that is new for every match: corridors one tile wide on a 3-tile lattice, mirrored left
 // to right, with no dead ends and a ghost pen in the middle. The maze has no side walls: its
 // outermost corridors run along the lanes, so every row is open to them.
-import { Rng } from './rng';
+import { Rng } from 'arcade-kit/rng';
 
 export const TILE = 8;
 export const COLS = 32;

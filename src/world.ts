@@ -1,7 +1,7 @@
 // The court: two paddles in their lanes, and between them a maze that Pongman flies through,
 // over dots, ghosts, and the invaders that come down a lane. Everything is simulated at 60 Hz;
 // y runs from the top of the maze grid (the renderer adds the HUD).
-import { Rng } from './rng';
+import { Rng } from 'arcade-kit/rng';
 import { Layout, generate, COLS, ROWS, TILE, FIELD_C0, FIELD_C1, LANE, OPEN, HOUSE_X, HOUSE_Y, DOOR_Y, DOT, PELLET, cellAt, cx, cy } from './maze';
 
 export { COLS, ROWS, TILE, FIELD_C0, FIELD_C1, DOT, PELLET, cellAt, cx, cy };

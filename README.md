@@ -46,7 +46,7 @@ MATCH sets how much fills a bar (3, 5, 7 or 11 goals' worth; dots and the rest c
 
 Gamepads: the first is yellow, the second red; stick or d-pad to move, A or Start for Enter (in play only Start pauses), B to go back, Select to quit from the pause screen, Y for the high scores on the title screen. Typing a name: Up/Down pick a letter, A enters it, B rubs one out. On a touch screen, drag on your half of the court; a tap is Enter.
 
-**D-pad not working on a Mac?** Cheap SNES-style USB pads (DragonRise, `0079:0011`, sold as "USB Gamepad") describe their d-pad in a way Chrome on macOS can't read: it sees the buttons but not the d-pad. Open the game with `?webhid` (https://gh.tschieber.de/pongman/?webhid) and click CONNECT GAMEPAD at the top right to read the d-pad over WebHID instead, then press one of the pad's buttons so the browser reports the pad. Chrome remembers the pad after that. Chrome and Edge only, as other browsers have no WebHID. The code is in `src/hidpad.ts`.
+**D-pad not working on a Mac?** Cheap SNES-style USB pads (DragonRise, `0079:0011`, sold as "USB Gamepad") describe their d-pad in a way Chrome on macOS can't read: it sees the buttons but not the d-pad. Open the game with `?webhid` (https://gh.tschieber.de/pongman/?webhid) and click CONNECT GAMEPAD at the top right to read the d-pad over WebHID instead, then press one of the pad's buttons so the browser reports the pad. Chrome remembers the pad after that. Chrome and Edge only, as other browsers have no WebHID. The code is in [arcade-kit](https://github.com/tilman-schieber/arcade-kit)'s `hidpad` module.
 
 ## The CPU
 

@@ -2,7 +2,7 @@ import { Game, Action, Input } from './game';
 import { render, W, H, GRID_Y } from './render';
 import { unlockAudio } from './audio';
 import { GRID_H } from './world';
-import { setupHidPad, padAxes } from './hidpad';
+import { setupHidPad, padAxes } from 'arcade-kit/hidpad';
 
 setupHidPad();
 

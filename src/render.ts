@@ -4,10 +4,11 @@ import { WALL, DOOR, HOUSE } from './maze';
 import { CPUS, PLAYERS, GOALS, SPEED_NAMES } from './modes';
 import { MAX_SCORES } from './scores';
 import { HELP_PAGES, wrapText } from './help';
-import { drawText, drawTextCentered, textWidth } from './font';
-import { Ctx, W, H, WHITE, RED, GREY, LIGHT, DARK, YELLOW, GOLD, mix, drawBox, drawSprite, pad } from './draw';
+import { drawText, drawTextCentered, textWidth } from 'arcade-kit/font';
+import { Ctx, WHITE, RED, GREY, LIGHT, DARK, YELLOW, GOLD, mix, drawBox, drawSprite, pad } from 'arcade-kit/draw';
 
-export { W, H };
+export const W = 256;
+export const H = 224;
 
 /** The maze grid starts here on screen; the HUD is above it. */
 export const GRID_Y = 28;
